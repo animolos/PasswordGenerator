@@ -3,6 +3,7 @@ import string
 import pyperclip
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, \
     QSpinBox, QPushButton, QCheckBox, QLineEdit
+from zxcvbn import zxcvbn
 
 
 class PasswordGenerator(QWidget):
@@ -27,10 +28,16 @@ class PasswordGenerator(QWidget):
         self.copy_button = QPushButton('Копировать в буфер обмена')
         self.copy_button.clicked.connect(self.copy_password)
 
-        # Добавление элементов в основной слой
+        # Кнопка копирования
+        self.strength_label = QLabel('Сложность пароля: Неизвестно')
+        self.strength_label.setWordWrap(True)
+
+        # Сложность пароля
         self.layout.addWidget(self.generate_button)
         self.layout.addWidget(self.password_lineedit)
         self.layout.addWidget(self.copy_button)
+        self.layout.addWidget(self.strength_label)
+
         self.setLayout(self.layout)
 
     def setup_password_options(self):
@@ -78,17 +85,31 @@ class PasswordGenerator(QWidget):
         length = self.length_spinbox.value()
         characters = self.get_character_set()
 
-        if characters:
-            password = ''.join(
-                random.choice(characters) for _ in range(length))
-            self.password_lineedit.setText(password)
-            self.password_lineedit.setStyleSheet("color: black;")
-        else:
+        if not characters:
             self.password_lineedit.clear()
             self.password_lineedit.setPlaceholderText(
                 "Выберите хотя бы один набор символов!")
             self.password_lineedit.setStyleSheet("color: red;")
+        else:
+            password = ''.join(
+                random.choice(characters) for _ in range(length))
+            self.password_lineedit.setText(password)
+            self.password_lineedit.setStyleSheet("color: black;")
+            self.evaluate_password_strength(password)
 
     def copy_password(self):
         password = self.password_lineedit.text()
         pyperclip.copy(password)
+
+    def evaluate_password_strength(self, password):
+        results = zxcvbn(password)
+        score = results['score']
+        strength_text = {
+            0: 'Очень слабый',
+            1: 'Слабый',
+            2: 'Средний',
+            3: 'Сильный',
+            4: 'Очень сильный'
+        }
+        self.strength_label.setText(
+            f'Сложность пароля: {strength_text[score]}')
