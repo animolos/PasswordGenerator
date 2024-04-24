@@ -28,11 +28,12 @@ class PasswordGenerator(QWidget):
         self.copy_button = QPushButton('Копировать в буфер обмена')
         self.copy_button.clicked.connect(self.copy_password)
 
-        # Кнопка копирования
+        # Сложность пароля
         self.strength_label = QLabel('Сложность пароля: Неизвестно')
         self.strength_label.setWordWrap(True)
+        self.strength_label.setText(None)
 
-        # Сложность пароля
+        # Добавление элементов в основной слой
         self.layout.addWidget(self.generate_button)
         self.layout.addWidget(self.password_lineedit)
         self.layout.addWidget(self.copy_button)
@@ -69,33 +70,51 @@ class PasswordGenerator(QWidget):
         self.layout.addWidget(self.digits_checkbox)
         self.layout.addWidget(self.symbols_checkbox)
 
-    def get_character_set(self):
-        characters = []
-        if self.uppercase_checkbox.isChecked():
-            characters += string.ascii_uppercase
-        if self.lowercase_checkbox.isChecked():
-            characters += string.ascii_lowercase
-        if self.digits_checkbox.isChecked():
-            characters += string.digits
-        if self.symbols_checkbox.isChecked():
-            characters += string.punctuation
-        return ''.join(characters)
-
     def generate_password(self):
-        length = self.length_spinbox.value()
-        characters = self.get_character_set()
+        character_sets = self.collect_character_sets()
 
-        if not characters:
-            self.password_lineedit.clear()
-            self.password_lineedit.setPlaceholderText(
-                "Выберите хотя бы один набор символов!")
-            self.password_lineedit.setStyleSheet("color: red;")
-        else:
-            password = ''.join(
-                random.choice(characters) for _ in range(length))
-            self.password_lineedit.setText(password)
-            self.password_lineedit.setStyleSheet("color: black;")
-            self.evaluate_password_strength(password)
+        if not character_sets:
+            self.display_error()
+            return
+
+        guaranteed_characters = self.generate_guaranteed_characters(
+            character_sets)
+        full_password = self.fill_password_with_random_characters(
+            guaranteed_characters, character_sets)
+        self.display_password(full_password)
+
+    def collect_character_sets(self):
+        character_sets = {
+            'uppercase': string.ascii_uppercase,
+            'lowercase': string.ascii_lowercase,
+            'digits': string.digits,
+            'symbols': string.punctuation
+        }
+        active_sets = {k: v for k, v in character_sets.items() if
+                       getattr(self, f"{k}_checkbox").isChecked()}
+        return active_sets
+
+    def fill_password_with_random_characters(self, guaranteed_characters,
+                                             character_sets):
+        length = self.length_spinbox.value()
+        all_characters = ''.join(character_sets.values())
+        while len(guaranteed_characters) < length:
+            guaranteed_characters.append(random.choice(all_characters))
+
+        random.shuffle(guaranteed_characters)
+        return ''.join(guaranteed_characters)
+
+    def display_password(self, password):
+        self.password_lineedit.setText(password)
+        self.password_lineedit.setStyleSheet("color: black;")
+        self.evaluate_password_strength(password)
+
+    def display_error(self):
+        self.password_lineedit.clear()
+        self.password_lineedit.setPlaceholderText(
+            "Выберите хотя бы один набор символов!")
+        self.password_lineedit.setStyleSheet("color: red;")
+        self.strength_label.setText(None)
 
     def copy_password(self):
         password = self.password_lineedit.text()
@@ -113,3 +132,7 @@ class PasswordGenerator(QWidget):
         }
         self.strength_label.setText(
             f'Сложность пароля: {strength_text[score]}')
+
+    @staticmethod
+    def generate_guaranteed_characters(character_sets):
+        return [random.choice(v) for v in character_sets.values()]
